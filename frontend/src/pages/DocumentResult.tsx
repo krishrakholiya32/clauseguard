@@ -1,0 +1,80 @@
+import { useEffect, useState } from "react";
+import { useParams, Link } from "react-router-dom";
+import * as api from "../api/client";
+import type { DocumentItem } from "../api/client";
+import DisclaimerBanner from "../components/DisclaimerBanner";
+import RiskBadge from "../components/RiskBadge";
+import ClauseCard from "../components/ClauseCard";
+import ChatBox from "../components/ChatBox";
+
+export default function DocumentResult() {
+  const { id } = useParams();
+  const documentId = Number(id);
+  const [doc, setDoc] = useState<DocumentItem | null>(null);
+
+  useEffect(() => {
+    let active = true;
+    const load = async () => {
+      const d = await api.getDocument(documentId);
+      if (active) setDoc(d);
+      if (active && (d.status === "pending" || d.status === "processing")) {
+        setTimeout(load, 3000);
+      }
+    };
+    load();
+    return () => {
+      active = false;
+    };
+  }, [documentId]);
+
+  if (!doc) return <p className="text-center mt-12 text-gray-500">Loading...</p>;
+
+  return (
+    <div className="max-w-2xl mx-auto mt-12 px-4 pb-12">
+      <Link to="/dashboard" className="text-sm text-blue-600">
+        &larr; Back to documents
+      </Link>
+      <h1 className="text-2xl font-semibold mt-2 mb-4">{doc.filename}</h1>
+      <DisclaimerBanner />
+
+      {(doc.status === "pending" || doc.status === "processing") && (
+        <p className="text-gray-600">Analyzing your document, this usually takes under a minute...</p>
+      )}
+
+      {doc.status === "failed" && (
+        <p className="text-red-600">
+          Something went wrong analyzing this document{doc.error_message ? `: ${doc.error_message}` : "."} Please try
+          uploading again.
+        </p>
+      )}
+
+      {doc.status === "done" && doc.analysis && (
+        <>
+          <div className="flex items-center gap-2 mb-3">
+            <span className="font-medium">Overall risk:</span>
+            <RiskBadge risk={doc.analysis.overall_risk} />
+          </div>
+          <p className="text-gray-800 mb-6">{doc.analysis.summary}</p>
+
+          <h2 className="text-lg font-medium mb-2">Clause breakdown</h2>
+          {doc.analysis.clauses.map((c, i) => (
+            <ClauseCard key={i} clause={c} />
+          ))}
+
+          {doc.analysis.negotiation_tips.length > 0 && (
+            <div className="mt-6 mb-6">
+              <h2 className="text-lg font-medium mb-2">What you could negotiate</h2>
+              <ul className="list-disc pl-5 space-y-1 text-gray-800">
+                {doc.analysis.negotiation_tips.map((tip, i) => (
+                  <li key={i}>{tip}</li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          <ChatBox documentId={doc.id} />
+        </>
+      )}
+    </div>
+  );
+}
