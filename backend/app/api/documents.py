@@ -17,8 +17,8 @@ from app.services.processor import process_document
 
 router = APIRouter(prefix="/documents", tags=["documents"])
 
-ALLOWED_DOC_TYPES = {"rental", "employment", "loan", "other"}
-ALLOWED_EXTENSIONS = {".pdf", ".png", ".jpg", ".jpeg"}
+ALLOWED_DOC_TYPES = {"rental", "employment", "loan", "freelance", "nda", "sale", "insurance", "other"}
+ALLOWED_EXTENSIONS = {".pdf", ".png", ".jpg", ".jpeg", ".docx"}
 
 
 @router.post("/upload", response_model=DocumentResponse)
@@ -80,6 +80,19 @@ async def get_document(
 ):
     document = await _get_owned_document(document_id, db, current_user)
     return await _to_response(document, db)
+
+
+@router.delete("/{document_id}", status_code=204)
+async def delete_document(
+    document_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    document = await _get_owned_document(document_id, db, current_user)
+    if os.path.exists(document.storage_path):
+        os.remove(document.storage_path)
+    await db.delete(document)
+    await db.commit()
 
 
 @router.post("/{document_id}/chat", response_model=ChatMessageResponse)

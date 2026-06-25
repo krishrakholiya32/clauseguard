@@ -1,11 +1,13 @@
-"""Extracts text from PDFs/images for LLM analysis.
+"""Extracts text from PDFs/DOCX/images for LLM analysis.
 
-Text-based PDFs are extracted directly (fast, free, no LLM call). Scanned/photographed
-PDFs and plain images are rendered to page images and handed to the Gemini vision model
-inside llm_service, since one model call there does OCR + understanding together.
+Text-based PDFs and DOCX files are extracted directly (fast, free, no LLM call).
+Scanned/photographed PDFs and plain images are rendered to page images and handed to
+the Gemini vision model inside llm_service, since one model call there does OCR +
+understanding together.
 """
 import io
 
+import docx
 import fitz  # PyMuPDF
 from PIL import Image
 
@@ -14,6 +16,15 @@ MIN_CHARS_PER_PAGE_TO_TRUST_TEXT_LAYER = 20
 
 def is_pdf(path: str) -> bool:
     return path.lower().endswith(".pdf")
+
+
+def is_docx(path: str) -> bool:
+    return path.lower().endswith(".docx")
+
+
+def extract_docx(path: str) -> str:
+    document = docx.Document(path)
+    return "\n".join(p.text for p in document.paragraphs if p.text.strip())
 
 
 def extract_pdf(path: str) -> tuple[str | None, list[Image.Image]]:
