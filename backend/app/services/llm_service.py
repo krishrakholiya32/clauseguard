@@ -17,13 +17,26 @@ RATE_LIMIT_MESSAGE = (
 )
 
 
+def _is_rate_limit_error(exc: Exception) -> bool:
+    exc_str = str(exc)
+    return (
+        isinstance(exc, ResourceExhausted)
+        or "429" in exc_str
+        or "quota" in exc_str.lower()
+        or "RESOURCE_EXHAUSTED" in exc_str
+        or "rate limit" in exc_str.lower()
+    )
+
+
 async def _generate_with_retry(fn, *args, **kwargs):
     """Runs a blocking Gemini SDK call in a thread, retrying on 429s with backoff."""
-    last_exc: ResourceExhausted | None = None
+    last_exc: Exception | None = None
     for delay in [*RATE_LIMIT_RETRY_DELAYS, None]:
         try:
             return await asyncio.to_thread(fn, *args, **kwargs)
-        except ResourceExhausted as exc:
+        except Exception as exc:
+            if not _is_rate_limit_error(exc):
+                raise
             last_exc = exc
             if delay is None:
                 raise RuntimeError(RATE_LIMIT_MESSAGE) from exc
@@ -73,17 +86,15 @@ def _parse_json_response(raw: str) -> dict:
 
 
 async def extract_text_from_images(images: list[Image.Image]) -> str:
-    """Runs OCR/transcription via Gemini vision, one call per page, in parallel."""
-
-    async def transcribe_page(img: Image.Image) -> str:
+    """Runs OCR/transcription via Gemini vision sequentially to stay within free-tier rate limits."""
+    results = []
+    for img in images:
         model = genai.GenerativeModel(settings.gemini_model)
         response = await _generate_with_retry(
             model.generate_content,
             [img, "Transcribe all text visible in this document page exactly as written. Output only the transcribed text."],
         )
-        return response.text
-
-    results = await asyncio.gather(*(transcribe_page(img) for img in images))
+        results.append(response.text)
     return "\n\n".join(results)
 
 

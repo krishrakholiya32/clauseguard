@@ -17,7 +17,7 @@ from app.services.processor import process_document
 
 router = APIRouter(prefix="/documents", tags=["documents"])
 
-ALLOWED_DOC_TYPES = {"rental", "employment", "loan", "freelance", "nda", "sale", "insurance", "other"}
+ALLOWED_DOC_TYPES = {"rental", "employment", "loan", "freelance", "nda", "sale", "insurance", "partnership", "vendor", "consulting", "software", "other"}
 ALLOWED_EXTENSIONS = {".pdf", ".png", ".jpg", ".jpeg", ".docx"}
 
 
