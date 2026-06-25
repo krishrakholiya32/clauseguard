@@ -51,9 +51,9 @@ export default function DocumentResult() {
         <button
           onClick={handleDelete}
           disabled={deleting}
-          className="text-sm text-red-600 hover:text-red-800 disabled:opacity-50"
+          className="text-sm text-red-600 hover:text-red-800 disabled:opacity-50 border border-red-200 hover:border-red-400 rounded-md px-3 py-1.5"
         >
-          {deleting ? "Deleting..." : "Delete document"}
+          {deleting ? "Deleting…" : "Delete document"}
         </button>
       </div>
       <h1 className="text-2xl font-semibold mt-2 mb-4">{doc.filename}</h1>
@@ -64,10 +64,16 @@ export default function DocumentResult() {
       )}
 
       {doc.status === "failed" && (
-        <p className="text-red-600">
-          Something went wrong analyzing this document{doc.error_message ? `: ${doc.error_message}` : "."} Please try
-          uploading again.
-        </p>
+        <div className="text-red-600 space-y-1">
+          <p>
+            {doc.error_message?.toLowerCase().includes("rate limit") ||
+            doc.error_message?.includes("429") ||
+            doc.error_message?.toLowerCase().includes("quota")
+              ? "The AI service is temporarily busy (rate limit reached on the free tier). Please wait a minute or two and try uploading again."
+              : `Something went wrong analyzing this document${doc.error_message ? `: ${doc.error_message}` : "."} Please try uploading again.`}
+          </p>
+          <p className="text-sm text-red-500">You can delete this document and re-upload it once the issue is resolved.</p>
+        </div>
       )}
 
       {doc.status === "done" && doc.analysis && (

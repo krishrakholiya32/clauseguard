@@ -76,10 +76,10 @@ export default function Dashboard() {
                 <button
                   onClick={(e) => handleDelete(e, doc.id)}
                   disabled={deletingId === doc.id}
-                  className="text-sm text-red-600 hover:text-red-800 disabled:opacity-50 px-1"
+                  className="text-xs text-red-600 hover:text-red-800 disabled:opacity-50 border border-red-200 hover:border-red-400 rounded px-2 py-0.5 whitespace-nowrap"
                   title="Delete document"
                 >
-                  {deletingId === doc.id ? "..." : "✕"}
+                  {deletingId === doc.id ? "Deleting…" : "Delete"}
                 </button>
               </div>
             </div>

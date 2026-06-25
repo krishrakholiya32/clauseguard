@@ -11,6 +11,10 @@ const DOC_TYPES = [
   { value: "nda", label: "NDA" },
   { value: "sale", label: "Sale / purchase agreement" },
   { value: "insurance", label: "Insurance policy" },
+  { value: "partnership", label: "Partnership / joint venture agreement" },
+  { value: "vendor", label: "Vendor / supplier agreement" },
+  { value: "consulting", label: "Consulting / advisory agreement" },
+  { value: "software", label: "Software license agreement" },
   { value: "other", label: "Other" },
 ];
 
@@ -52,13 +56,16 @@ export default function Upload() {
             </option>
           ))}
         </select>
-        <input
-          className="w-full border border-gray-300 rounded-lg px-3 py-2"
-          type="file"
-          accept=".pdf,.docx,.png,.jpg,.jpeg"
-          onChange={(e) => setFile(e.target.files?.[0] || null)}
-          required
-        />
+        <div>
+          <input
+            className="w-full border border-gray-300 rounded-lg px-3 py-2"
+            type="file"
+            accept=".pdf,.docx,.doc,.png,.jpg,.jpeg"
+            onChange={(e) => setFile(e.target.files?.[0] || null)}
+            required
+          />
+          <p className="text-xs text-gray-500 mt-1">Accepted formats: PDF, DOCX, JPG, PNG</p>
+        </div>
         {error && <p className="text-red-600 text-sm">{error}</p>}
         <button
           className="w-full bg-blue-600 text-white rounded-lg py-2 disabled:opacity-50"
