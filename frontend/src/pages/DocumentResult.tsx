@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useParams, Link } from "react-router-dom";
+import { useParams, Link, useNavigate } from "react-router-dom";
 import * as api from "../api/client";
 import type { DocumentItem } from "../api/client";
 import DisclaimerBanner from "../components/DisclaimerBanner";
@@ -11,6 +11,19 @@ export default function DocumentResult() {
   const { id } = useParams();
   const documentId = Number(id);
   const [doc, setDoc] = useState<DocumentItem | null>(null);
+  const [deleting, setDeleting] = useState(false);
+  const navigate = useNavigate();
+
+  const handleDelete = async () => {
+    if (!confirm("Delete this document and its analysis? This can't be undone.")) return;
+    setDeleting(true);
+    try {
+      await api.deleteDocument(documentId);
+      navigate("/dashboard");
+    } finally {
+      setDeleting(false);
+    }
+  };
 
   useEffect(() => {
     let active = true;
@@ -31,9 +44,18 @@ export default function DocumentResult() {
 
   return (
     <div className="max-w-2xl mx-auto mt-12 px-4 pb-12">
-      <Link to="/dashboard" className="text-sm text-blue-600">
-        &larr; Back to documents
-      </Link>
+      <div className="flex items-center justify-between">
+        <Link to="/dashboard" className="text-sm text-blue-600">
+          &larr; Back to documents
+        </Link>
+        <button
+          onClick={handleDelete}
+          disabled={deleting}
+          className="text-sm text-red-600 hover:text-red-800 disabled:opacity-50"
+        >
+          {deleting ? "Deleting..." : "Delete document"}
+        </button>
+      </div>
       <h1 className="text-2xl font-semibold mt-2 mb-4">{doc.filename}</h1>
       <DisclaimerBanner />
 

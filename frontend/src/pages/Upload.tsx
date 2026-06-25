@@ -7,6 +7,10 @@ const DOC_TYPES = [
   { value: "rental", label: "Rental agreement" },
   { value: "employment", label: "Employment contract" },
   { value: "loan", label: "Loan agreement" },
+  { value: "freelance", label: "Freelance / service agreement" },
+  { value: "nda", label: "NDA" },
+  { value: "sale", label: "Sale / purchase agreement" },
+  { value: "insurance", label: "Insurance policy" },
   { value: "other", label: "Other" },
 ];
 
@@ -26,7 +30,7 @@ export default function Upload() {
       const doc = await api.uploadDocument(file, docType);
       navigate(`/documents/${doc.id}`);
     } catch {
-      setError("Upload failed. Please try a different file (PDF, JPG, or PNG).");
+      setError("Upload failed. Please try a different file (PDF, DOCX, JPG, or PNG).");
     } finally {
       setUploading(false);
     }
@@ -51,7 +55,7 @@ export default function Upload() {
         <input
           className="w-full border border-gray-300 rounded-lg px-3 py-2"
           type="file"
-          accept=".pdf,.png,.jpg,.jpeg"
+          accept=".pdf,.docx,.png,.jpg,.jpeg"
           onChange={(e) => setFile(e.target.files?.[0] || null)}
           required
         />

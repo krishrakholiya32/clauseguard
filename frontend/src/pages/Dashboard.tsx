@@ -14,6 +14,7 @@ const STATUS_LABELS: Record<string, string> = {
 export default function Dashboard() {
   const [documents, setDocuments] = useState<DocumentItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [deletingId, setDeletingId] = useState<number | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -31,6 +32,19 @@ export default function Dashboard() {
       clearInterval(interval);
     };
   }, []);
+
+  const handleDelete = async (e: React.MouseEvent, id: number) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!confirm("Delete this document and its analysis? This can't be undone.")) return;
+    setDeletingId(id);
+    try {
+      await api.deleteDocument(id);
+      setDocuments((docs) => docs.filter((d) => d.id !== id));
+    } finally {
+      setDeletingId(null);
+    }
+  };
 
   return (
     <div className="max-w-2xl mx-auto mt-12 px-4">
@@ -59,6 +73,14 @@ export default function Dashboard() {
               <div className="flex items-center gap-2">
                 {doc.analysis && <RiskBadge risk={doc.analysis.overall_risk} />}
                 <span className="text-sm text-gray-500">{STATUS_LABELS[doc.status]}</span>
+                <button
+                  onClick={(e) => handleDelete(e, doc.id)}
+                  disabled={deletingId === doc.id}
+                  className="text-sm text-red-600 hover:text-red-800 disabled:opacity-50 px-1"
+                  title="Delete document"
+                >
+                  {deletingId === doc.id ? "..." : "✕"}
+                </button>
               </div>
             </div>
           </Link>

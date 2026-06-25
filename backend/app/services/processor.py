@@ -14,7 +14,9 @@ async def process_document(document_id: int) -> None:
         await db.commit()
 
         try:
-            if extraction.is_pdf(document.storage_path):
+            if extraction.is_docx(document.storage_path):
+                text = extraction.extract_docx(document.storage_path)
+            elif extraction.is_pdf(document.storage_path):
                 text, page_images = extraction.extract_pdf(document.storage_path)
                 if text is None:
                     text = await llm_service.extract_text_from_images(page_images)

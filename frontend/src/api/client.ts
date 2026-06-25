@@ -73,6 +73,10 @@ export async function getDocument(id: number) {
   return data;
 }
 
+export async function deleteDocument(id: number) {
+  await client.delete(`/documents/${id}`);
+}
+
 export async function getChatHistory(id: number) {
   const { data } = await client.get<ChatMessage[]>(`/documents/${id}/chat`);
   return data;
