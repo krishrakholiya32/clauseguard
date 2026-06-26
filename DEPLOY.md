@@ -59,7 +59,7 @@ docker compose version
 ## Step 4 — Get the code onto the VM
 
 ```bash
-git clone https://github.com/YOUR_USERNAME/ClauseGuard.git ~/clauseguard
+git clone https://github.com/krishrakholiya32/clauseguard.git ~/clauseguard
 cd ~/clauseguard
 ```
 
