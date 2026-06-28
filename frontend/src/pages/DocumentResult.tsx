@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import * as api from "../api/client";
 import type { DocumentItem } from "../api/client";
@@ -23,8 +23,10 @@ export default function DocumentResult() {
   const { id } = useParams();
   const documentId = Number(id);
   const [doc, setDoc] = useState<DocumentItem | null>(null);
+  const [loadError, setLoadError] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const navigate = useNavigate();
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const handleDelete = async () => {
     if (!confirm("Delete this document and its analysis? This can't be undone.")) return;
@@ -39,16 +41,44 @@ export default function DocumentResult() {
 
   useEffect(() => {
     let active = true;
+
     const load = async () => {
-      const d = await api.getDocument(documentId);
-      if (active) setDoc(d);
-      if (active && (d.status === "pending" || d.status === "processing")) {
-        setTimeout(load, 3000);
+      try {
+        const d = await api.getDocument(documentId);
+        if (!active) return;
+        setDoc(d);
+        if (d.status === "pending" || d.status === "processing") {
+          timerRef.current = setTimeout(load, 3000);
+        }
+      } catch {
+        if (active) setLoadError(true);
       }
     };
+
     load();
-    return () => { active = false; };
+
+    return () => {
+      active = false;
+      if (timerRef.current) clearTimeout(timerRef.current);
+    };
   }, [documentId]);
+
+  if (loadError) {
+    return (
+      <div className="max-w-2xl mx-auto px-4 py-12">
+        <Link to="/dashboard" className="text-sm text-gray-400 hover:text-gray-600 transition-colors flex items-center gap-1 mb-8">
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+            <path d="M9 11L5 7l4-4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+          Back to documents
+        </Link>
+        <div className="p-5 bg-red-50 border border-red-100 rounded-xl">
+          <p className="text-red-700 font-medium text-sm mb-1">Document not found</p>
+          <p className="text-red-600 text-sm">This document may have been deleted or doesn't exist.</p>
+        </div>
+      </div>
+    );
+  }
 
   if (!doc) {
     return (

@@ -120,7 +120,6 @@ export default function Upload() {
               accept=".pdf,.docx,.doc,.png,.jpg,.jpeg"
               className="sr-only"
               onChange={(e) => setFile(e.target.files?.[0] || null)}
-              required
             />
             <div className="flex justify-center mb-3">
               <UploadIcon />

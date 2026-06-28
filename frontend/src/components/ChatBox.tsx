@@ -6,6 +6,7 @@ export default function ChatBox({ documentId }: { documentId: number }) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState("");
   const [sending, setSending] = useState(false);
+  const [sendError, setSendError] = useState("");
   const bottomRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -14,12 +15,13 @@ export default function ChatBox({ documentId }: { documentId: number }) {
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages]);
+  }, [messages, sending]);
 
   const handleSend = async () => {
     if (!input.trim() || sending) return;
     const question = input.trim();
     setInput("");
+    setSendError("");
     setSending(true);
     setMessages((prev) => [
       ...prev,
@@ -28,6 +30,10 @@ export default function ChatBox({ documentId }: { documentId: number }) {
     try {
       const reply = await api.sendChatMessage(documentId, question);
       setMessages((prev) => [...prev, reply]);
+    } catch {
+      setSendError("Failed to get a response. Please try again.");
+      setMessages((prev) => prev.slice(0, -1));
+      setInput(question);
     } finally {
       setSending(false);
     }
@@ -70,12 +76,18 @@ export default function ChatBox({ documentId }: { documentId: number }) {
         </div>
       )}
 
+      {sendError && (
+        <div className="mx-3 mt-2 text-xs text-red-600 bg-red-50 border border-red-100 rounded-lg px-3 py-2">
+          {sendError}
+        </div>
+      )}
+
       <div className="px-3 py-3 border-t border-gray-100 flex gap-2">
         <input
           className="flex-1 border border-gray-200 rounded-lg px-3.5 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all bg-gray-50"
           placeholder="Ask anything about this contract…"
           value={input}
-          onChange={(e) => setInput(e.target.value)}
+          onChange={(e) => { setInput(e.target.value); setSendError(""); }}
           onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && handleSend()}
           disabled={sending}
         />

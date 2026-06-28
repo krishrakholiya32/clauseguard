@@ -162,9 +162,9 @@ export default function Landing() {
 
       {/* Contract types ticker */}
       <div className="bg-gray-50 border-y border-gray-100 py-4 overflow-hidden">
-        <div className="flex gap-6 whitespace-nowrap">
-          {[...CONTRACT_TYPES, ...CONTRACT_TYPES].map((t, i) => (
-            <span key={i} className="text-sm text-gray-400 shrink-0">
+        <div className="animate-marquee gap-8 whitespace-nowrap">
+          {[...CONTRACT_TYPES, ...CONTRACT_TYPES, ...CONTRACT_TYPES].map((t, i) => (
+            <span key={i} className="text-sm text-gray-400 shrink-0 mr-8">
               <span className="text-gray-300 mr-2">✦</span>
               {t}
             </span>
