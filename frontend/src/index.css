@@ -10,6 +10,14 @@ body {
   background: #ffffff;
   color: #111827;
   -webkit-font-smoothing: antialiased;
+  overflow-x: hidden;
+}
+
+/* Prevent iOS/Android auto-zoom on input focus — requires font-size >= 16px */
+@media screen and (max-width: 640px) {
+  input, select, textarea {
+    font-size: 16px !important;
+  }
 }
 
 ::-webkit-scrollbar {
