@@ -99,7 +99,7 @@ export default function Landing() {
     <div className="min-h-screen bg-white">
       {/* Nav */}
       <header className="sticky top-0 z-20 bg-white border-b border-gray-100">
-        <div className="max-w-6xl mx-auto px-6 py-4 flex items-center justify-between">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 py-4 flex items-center justify-between">
           <div className="flex items-center gap-2.5">
             <ShieldLogo />
             <span className="font-bold text-xl text-gray-900 tracking-tight">ClauseGuard</span>
@@ -122,7 +122,7 @@ export default function Landing() {
       </header>
 
       {/* Hero */}
-      <section className="max-w-4xl mx-auto px-6 pt-20 pb-24 text-center">
+      <section className="max-w-4xl mx-auto px-4 sm:px-6 pt-14 sm:pt-20 pb-18 sm:pb-24 text-center">
         <div className="inline-flex items-center gap-2 bg-indigo-50 text-indigo-700 text-xs font-semibold tracking-wide uppercase px-3 py-1.5 rounded-full mb-8">
           <svg width="12" height="12" viewBox="0 0 12 12" fill="currentColor">
             <path d="M6 0l1.5 4.5H12l-3.75 2.7 1.5 4.5L6 9l-3.75 2.7 1.5-4.5L0 4.5h4.5L6 0z" />
@@ -130,13 +130,13 @@ export default function Landing() {
           AI-powered contract analysis
         </div>
 
-        <h1 className="text-5xl sm:text-6xl font-extrabold text-gray-900 leading-tight tracking-tight mb-6">
+        <h1 className="text-3xl sm:text-5xl lg:text-6xl font-extrabold text-gray-900 leading-tight tracking-tight mb-5 sm:mb-6">
           Know what you're signing.
           <br />
           <span className="text-indigo-600">Before you sign it.</span>
         </h1>
 
-        <p className="text-lg sm:text-xl text-gray-500 max-w-2xl mx-auto mb-10 leading-relaxed">
+        <p className="text-base sm:text-lg lg:text-xl text-gray-500 max-w-2xl mx-auto mb-8 sm:mb-10 leading-relaxed">
           Upload any contract. AI reads every clause, flags the risky parts, and tells you exactly
           what to push back on — in plain English, in seconds.
         </p>
@@ -173,7 +173,7 @@ export default function Landing() {
       </div>
 
       {/* Features */}
-      <section className="bg-white py-24 px-6">
+      <section className="bg-white py-16 sm:py-24 px-4 sm:px-6">
         <div className="max-w-5xl mx-auto">
           <div className="text-center mb-14">
             <h2 className="text-3xl sm:text-4xl font-bold text-gray-900 mb-4">
@@ -201,7 +201,7 @@ export default function Landing() {
       </section>
 
       {/* How it works */}
-      <section className="bg-gray-50 py-24 px-6 border-y border-gray-100">
+      <section className="bg-gray-50 py-16 sm:py-24 px-4 sm:px-6 border-y border-gray-100">
         <div className="max-w-3xl mx-auto">
           <div className="text-center mb-14">
             <h2 className="text-3xl sm:text-4xl font-bold text-gray-900 mb-4">How it works</h2>
@@ -227,16 +227,16 @@ export default function Landing() {
       </section>
 
       {/* CTA */}
-      <section className="bg-indigo-600 py-20 px-6 text-center">
-        <h2 className="text-3xl sm:text-4xl font-bold text-white mb-4">
+      <section className="bg-indigo-600 py-14 sm:py-20 px-4 sm:px-6 text-center">
+        <h2 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-white mb-4">
           Stop signing contracts blind.
         </h2>
-        <p className="text-indigo-200 text-lg mb-10 max-w-xl mx-auto">
+        <p className="text-indigo-200 text-base sm:text-lg mb-8 sm:mb-10 max-w-xl mx-auto">
           Get plain-English clause analysis, risk scores, and negotiation tips in under a minute.
         </p>
         <Link
           to="/signup"
-          className="inline-block bg-white text-indigo-600 font-semibold text-base px-7 py-3.5 rounded-xl hover:bg-indigo-50 transition-colors shadow-sm"
+          className="inline-block bg-white text-indigo-600 font-semibold text-base px-6 sm:px-7 py-3.5 rounded-xl hover:bg-indigo-50 transition-colors shadow-sm"
         >
           Get started free →
         </Link>
@@ -244,7 +244,7 @@ export default function Landing() {
       </section>
 
       {/* Footer */}
-      <footer className="bg-white border-t border-gray-100 py-10 px-6">
+      <footer className="bg-white border-t border-gray-100 py-8 sm:py-10 px-4 sm:px-6">
         <div className="max-w-6xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4">
           <div className="flex items-center gap-2.5">
             <ShieldLogo size={22} />

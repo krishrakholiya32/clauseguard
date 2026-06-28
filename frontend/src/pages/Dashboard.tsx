@@ -166,19 +166,25 @@ export default function Dashboard() {
               </div>
             </div>
 
-            <div className="flex items-center gap-3 shrink-0">
-              {doc.analysis && <RiskBadge risk={doc.analysis.overall_risk} />}
+            <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+              {doc.analysis && (
+                <span className="hidden sm:block">
+                  <RiskBadge risk={doc.analysis.overall_risk} />
+                </span>
+              )}
               <div className="flex items-center gap-1.5">
                 <span className={`w-1.5 h-1.5 rounded-full ${STATUS_DOT[doc.status]}`} />
-                <span className="text-xs text-gray-500">{STATUS_LABELS[doc.status]}</span>
+                <span className="hidden sm:inline text-xs text-gray-500">{STATUS_LABELS[doc.status]}</span>
               </div>
               <button
                 onClick={(e) => handleDelete(e, doc.id)}
                 disabled={deletingId === doc.id}
-                className="text-xs text-gray-400 hover:text-red-600 disabled:opacity-40 p-1 rounded transition-colors opacity-0 group-hover:opacity-100"
+                className="text-gray-400 hover:text-red-600 disabled:opacity-40 p-1 rounded transition-colors opacity-100 sm:opacity-0 sm:group-hover:opacity-100"
                 title="Delete"
               >
-                {deletingId === doc.id ? "…" : (
+                {deletingId === doc.id ? (
+                  <span className="text-xs">…</span>
+                ) : (
                   <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
                     <path d="M2 3.5h10M5.5 3.5V2.5h3V3.5M6 6.5v4M8 6.5v4M3 3.5l.5 8h7l.5-8" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round" strokeLinejoin="round" />
                   </svg>

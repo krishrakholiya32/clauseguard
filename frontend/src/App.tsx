@@ -36,23 +36,28 @@ function Nav() {
   if (!token) return null;
   return (
     <nav className="sticky top-0 z-20 bg-white border-b border-gray-100">
-      <div className="max-w-5xl mx-auto px-6 py-3.5 flex items-center justify-between">
+      <div className="max-w-5xl mx-auto px-4 sm:px-6 py-3.5 flex items-center justify-between">
         <Link to="/dashboard" className="flex items-center gap-2 hover:opacity-80 transition-opacity">
           <ShieldLogo />
           <span className="font-bold text-gray-900 tracking-tight">ClauseGuard</span>
         </Link>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2 sm:gap-3">
           <Link
             to="/upload"
-            className="text-sm font-semibold bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 transition-colors"
+            className="text-sm font-semibold bg-indigo-600 text-white px-3 sm:px-4 py-2 rounded-lg hover:bg-indigo-700 transition-colors"
           >
-            + Analyze contract
+            <span className="hidden sm:inline">+ Analyze contract</span>
+            <span className="sm:hidden">+ Analyze</span>
           </Link>
           <button
             onClick={logout}
-            className="text-sm text-gray-500 hover:text-gray-800 transition-colors px-2 py-2"
+            className="text-gray-500 hover:text-gray-800 transition-colors p-2 rounded-lg hover:bg-gray-50"
+            title="Log out"
           >
-            Log out
+            <span className="hidden sm:inline text-sm">Log out</span>
+            <svg className="sm:hidden" width="18" height="18" viewBox="0 0 18 18" fill="none">
+              <path d="M7 3H4a1 1 0 00-1 1v10a1 1 0 001 1h3M12 5.5L15.5 9l-3.5 3.5M15.5 9H7" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
           </button>
         </div>
       </div>
