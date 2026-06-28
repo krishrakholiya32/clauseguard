@@ -10,6 +10,7 @@ class Settings(BaseSettings):
     jwt_algorithm: str = "HS256"
     jwt_expire_minutes: int = 60 * 24 * 7
     gemini_api_key: str = ""
+    gemini_api_key_2: str = ""
     gemini_model: str = "gemini-2.0-flash"
     upload_dir: str = "uploads"
     cors_origins: list[str] = ["http://localhost:5173", "http://localhost:80"]

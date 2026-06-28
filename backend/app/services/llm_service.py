@@ -8,40 +8,10 @@ from PIL import Image
 from app.core.config import settings
 from app.services.redflags import get_checklist
 
-genai.configure(api_key=settings.gemini_api_key)
-
-RATE_LIMIT_RETRY_DELAYS = [5, 15, 40]  # seconds — exponential-ish backoff for 429s
 RATE_LIMIT_MESSAGE = (
-    "Gemini API rate limit reached (free tier allows a limited number of requests "
-    "per minute). Please wait about a minute and try again."
+    "All Gemini API keys are rate-limited (free tier). "
+    "Please wait a minute and try again."
 )
-
-
-def _is_rate_limit_error(exc: Exception) -> bool:
-    exc_str = str(exc)
-    return (
-        isinstance(exc, ResourceExhausted)
-        or "429" in exc_str
-        or "quota" in exc_str.lower()
-        or "RESOURCE_EXHAUSTED" in exc_str
-        or "rate limit" in exc_str.lower()
-    )
-
-
-async def _generate_with_retry(fn, *args, **kwargs):
-    """Runs a blocking Gemini SDK call in a thread, retrying on 429s with backoff."""
-    last_exc: Exception | None = None
-    for delay in [*RATE_LIMIT_RETRY_DELAYS, None]:
-        try:
-            return await asyncio.to_thread(fn, *args, **kwargs)
-        except Exception as exc:
-            if not _is_rate_limit_error(exc):
-                raise
-            last_exc = exc
-            if delay is None:
-                raise RuntimeError(RATE_LIMIT_MESSAGE) from exc
-            await asyncio.sleep(delay)
-    raise RuntimeError(RATE_LIMIT_MESSAGE) from last_exc
 
 SYSTEM_INSTRUCTION = """You are ClauseGuard, an assistant that helps Indian consumers \
 understand contracts (rental agreements, employment offers, loan documents, etc.) in \
@@ -69,11 +39,52 @@ Document content:
 {content}
 """
 
-FOLLOWUP_SYSTEM_NOTE = "Answer strictly based on the document content provided. If the document doesn't address the question, say so clearly instead of guessing. Do not give definitive legal advice."
+FOLLOWUP_SYSTEM_NOTE = (
+    "Answer strictly based on the document content provided. "
+    "If the document doesn't address the question, say so clearly instead of guessing. "
+    "Do not give definitive legal advice."
+)
 
 
-def _model():
-    return genai.GenerativeModel(settings.gemini_model, system_instruction=SYSTEM_INSTRUCTION)
+def _is_rate_limit(exc: Exception) -> bool:
+    s = str(exc)
+    return (
+        isinstance(exc, ResourceExhausted)
+        or "429" in s
+        or "quota" in s.lower()
+        or "RESOURCE_EXHAUSTED" in s
+        or "rate limit" in s.lower()
+    )
+
+
+def _active_keys() -> list[str]:
+    return [k for k in [settings.gemini_api_key, settings.gemini_api_key_2] if k]
+
+
+async def _gemini_call(make_call):
+    """
+    Tries each configured Gemini key in order, rotating on rate-limit errors.
+    make_call() must create the GenerativeModel INSIDE itself so it picks up
+    whichever key was set by genai.configure() for that attempt.
+    """
+    keys = _active_keys()
+    if not keys:
+        raise RuntimeError("No GEMINI_API_KEY configured")
+
+    last_exc: Exception | None = None
+    for key in keys:
+        try:
+            def _run(k=key, fn=make_call):
+                genai.configure(api_key=k)
+                return fn()
+            return await asyncio.to_thread(_run)
+        except Exception as exc:
+            if not _is_rate_limit(exc):
+                raise
+            last_exc = exc
+            print(f"[LLM] Key ...{key[-6:]} rate limited, rotating to next key")
+
+    raise RuntimeError(RATE_LIMIT_MESSAGE) from last_exc
 
 
 def _parse_json_response(raw: str) -> dict:
@@ -86,14 +97,14 @@ def _parse_json_response(raw: str) -> dict:
 
 
 async def extract_text_from_images(images: list[Image.Image]) -> str:
-    """Runs OCR/transcription via Gemini vision sequentially to stay within free-tier rate limits."""
     results = []
     for img in images:
-        model = genai.GenerativeModel(settings.gemini_model)
-        response = await _generate_with_retry(
-            model.generate_content,
-            [img, "Transcribe all text visible in this document page exactly as written. Output only the transcribed text."],
-        )
+        def _call(image=img):
+            model = genai.GenerativeModel(settings.gemini_model)
+            return model.generate_content(
+                [image, "Transcribe all text visible in this document page exactly as written. Output only the transcribed text."]
+            )
+        response = await _gemini_call(_call)
         results.append(response.text)
     return "\n\n".join(results)
 
@@ -101,13 +112,16 @@ async def extract_text_from_images(images: list[Image.Image]) -> str:
 async def analyze_document(doc_type: str, content: str) -> dict:
     checklist = "\n".join(f"- {item}" for item in get_checklist(doc_type))
     prompt = ANALYSIS_PROMPT_TEMPLATE.format(doc_type=doc_type, checklist=checklist, content=content)
-    model = _model()
-    response = await _generate_with_retry(model.generate_content, prompt)
+
+    def _call():
+        model = genai.GenerativeModel(settings.gemini_model, system_instruction=SYSTEM_INSTRUCTION)
+        return model.generate_content(prompt)
+
+    response = await _gemini_call(_call)
     return _parse_json_response(response.text)
 
 
 async def answer_followup(document_text: str, history: list[dict], question: str) -> str:
-    model = _model()
     convo = [
         {"role": "user", "parts": [f"{FOLLOWUP_SYSTEM_NOTE}\n\nDocument content:\n{document_text}"]},
         {"role": "model", "parts": ["Understood, I'll answer based only on this document."]},
@@ -116,6 +130,10 @@ async def answer_followup(document_text: str, history: list[dict], question: str
         role = "model" if msg["role"] == "assistant" else "user"
         convo.append({"role": role, "parts": [msg["content"]]})
 
-    chat = model.start_chat(history=convo)
-    response = await _generate_with_retry(chat.send_message, question)
+    def _call():
+        model = genai.GenerativeModel(settings.gemini_model, system_instruction=SYSTEM_INSTRUCTION)
+        chat = model.start_chat(history=convo)
+        return chat.send_message(question)
+
+    response = await _gemini_call(_call)
     return response.text
