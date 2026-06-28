@@ -1,3 +1,6 @@
+from typing import Any
+
+from pydantic import field_validator
 from pydantic_settings import BaseSettings
 
 
@@ -8,11 +11,27 @@ class Settings(BaseSettings):
     jwt_expire_minutes: int = 60 * 24 * 7
     gemini_api_key: str = ""
     gemini_model: str = "gemini-2.0-flash"
-    upload_dir: str = "/app/uploads"
+    upload_dir: str = "uploads"
     cors_origins: list[str] = ["http://localhost:5173", "http://localhost:80"]
 
     class Config:
         env_file = ".env"
+
+    @field_validator("database_url", mode="before")
+    @classmethod
+    def fix_db_url(cls, v: str) -> str:
+        if v.startswith("postgres://"):
+            return "postgresql+asyncpg://" + v[len("postgres://"):]
+        if v.startswith("postgresql://") and "+asyncpg" not in v:
+            return "postgresql+asyncpg://" + v[len("postgresql://"):]
+        return v
+
+    @field_validator("cors_origins", mode="before")
+    @classmethod
+    def parse_cors_origins(cls, v: Any) -> Any:
+        if isinstance(v, str):
+            return [o.strip() for o in v.split(",") if o.strip()]
+        return v
 
 
 settings = Settings()

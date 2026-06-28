@@ -21,7 +21,10 @@ export default function ChatBox({ documentId }: { documentId: number }) {
     const question = input.trim();
     setInput("");
     setSending(true);
-    setMessages((prev) => [...prev, { role: "user", content: question, created_at: new Date().toISOString() }]);
+    setMessages((prev) => [
+      ...prev,
+      { role: "user", content: question, created_at: new Date().toISOString() },
+    ]);
     try {
       const reply = await api.sendChatMessage(documentId, question);
       setMessages((prev) => [...prev, reply]);
@@ -31,35 +34,60 @@ export default function ChatBox({ documentId }: { documentId: number }) {
   };
 
   return (
-    <div className="border border-gray-200 rounded-lg p-4 bg-white">
-      <h3 className="font-medium mb-3">Ask a follow-up question</h3>
-      <div className="space-y-2 max-h-64 overflow-y-auto mb-3">
-        {messages.map((m, i) => (
-          <div
-            key={i}
-            className={`text-sm p-2 rounded-lg max-w-[85%] ${
-              m.role === "user" ? "bg-blue-50 ml-auto text-right" : "bg-gray-100"
-            }`}
-          >
-            {m.content}
-          </div>
-        ))}
-        <div ref={bottomRef} />
+    <div className="border border-gray-200 rounded-xl overflow-hidden bg-white">
+      <div className="px-4 py-3 border-b border-gray-100 bg-gray-50">
+        <h3 className="text-sm font-semibold text-gray-800">Ask a question about this contract</h3>
+        <p className="text-xs text-gray-400 mt-0.5">e.g. "Can my landlord keep my full deposit?"</p>
       </div>
-      <div className="flex gap-2">
+
+      {messages.length > 0 && (
+        <div className="px-4 py-3 space-y-3 max-h-72 overflow-y-auto">
+          {messages.map((m, i) => (
+            <div key={i} className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}>
+              <div
+                className={`text-sm px-3.5 py-2.5 rounded-2xl max-w-[85%] leading-relaxed ${
+                  m.role === "user"
+                    ? "bg-indigo-600 text-white rounded-tr-sm"
+                    : "bg-gray-100 text-gray-800 rounded-tl-sm"
+                }`}
+              >
+                {m.content}
+              </div>
+            </div>
+          ))}
+          {sending && (
+            <div className="flex justify-start">
+              <div className="bg-gray-100 text-gray-400 text-sm px-3.5 py-2.5 rounded-2xl rounded-tl-sm">
+                <span className="inline-flex gap-1">
+                  <span className="animate-bounce" style={{ animationDelay: "0ms" }}>•</span>
+                  <span className="animate-bounce" style={{ animationDelay: "150ms" }}>•</span>
+                  <span className="animate-bounce" style={{ animationDelay: "300ms" }}>•</span>
+                </span>
+              </div>
+            </div>
+          )}
+          <div ref={bottomRef} />
+        </div>
+      )}
+
+      <div className="px-3 py-3 border-t border-gray-100 flex gap-2">
         <input
-          className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm"
-          placeholder="e.g. Can my landlord keep my full deposit?"
+          className="flex-1 border border-gray-200 rounded-lg px-3.5 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all bg-gray-50"
+          placeholder="Ask anything about this contract…"
           value={input}
           onChange={(e) => setInput(e.target.value)}
-          onKeyDown={(e) => e.key === "Enter" && handleSend()}
+          onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && handleSend()}
+          disabled={sending}
         />
         <button
           onClick={handleSend}
-          disabled={sending}
-          className="bg-blue-600 text-white rounded-lg px-4 py-2 text-sm disabled:opacity-50"
+          disabled={sending || !input.trim()}
+          className="bg-indigo-600 text-white rounded-lg px-4 py-2 text-sm font-medium hover:bg-indigo-700 disabled:opacity-50 transition-colors flex items-center gap-1.5"
         >
-          {sending ? "..." : "Send"}
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+            <path d="M12.5 7l-11 5 2.5-5-2.5-5 11 5z" fill="white" />
+          </svg>
+          Send
         </button>
       </div>
     </div>
