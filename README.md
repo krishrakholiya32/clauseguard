@@ -25,19 +25,27 @@
 <table>
   <tr>
     <td><img src="docs/screenshots/1-landing.png" alt="Landing page" width="100%"></td>
-    <td><img src="docs/screenshots/2-upload.png" alt="Upload contract" width="100%"></td>
+    <td><img src="docs/screenshots/4-upload.png" alt="Upload contract" width="100%"></td>
   </tr>
   <tr>
     <td align="center"><em>Landing — hero, feature grid, how it works</em></td>
     <td align="center"><em>Upload — drag-and-drop, contract type selector</em></td>
   </tr>
   <tr>
-    <td><img src="docs/screenshots/3-analysis.png" alt="Analysis result" width="100%"></td>
-    <td><img src="docs/screenshots/4-chat.png" alt="Document chat" width="100%"></td>
+    <td><img src="docs/screenshots/3-dashboard-with-doc.png" alt="Dashboard" width="100%"></td>
+    <td><img src="docs/screenshots/5-analysis.png" alt="Analysis result" width="100%"></td>
   </tr>
   <tr>
-    <td align="center"><em>Analysis — overall risk, clause-by-clause breakdown</em></td>
-    <td align="center"><em>Chat — ask any question about the contract</em></td>
+    <td align="center"><em>Dashboard — document list with risk badges</em></td>
+    <td align="center"><em>Analysis — overall risk score + clause breakdown</em></td>
+  </tr>
+  <tr>
+    <td><img src="docs/screenshots/6-clauses.png" alt="Clause cards" width="100%"></td>
+    <td><img src="docs/screenshots/7-chat.png" alt="Negotiation tips and chat" width="100%"></td>
+  </tr>
+  <tr>
+    <td align="center"><em>Clauses — green/yellow/red risk cards with plain-English explanations</em></td>
+    <td align="center"><em>Negotiation tips + document chat</em></td>
   </tr>
 </table>
 
@@ -129,7 +137,7 @@ Browser
 ### 1. Clone
 
 ```bash
-git clone https://github.com/zrik/clauseguard.git
+git clone https://github.com/krishrakholiya32/clauseguard.git
 cd clauseguard
 ```
 
