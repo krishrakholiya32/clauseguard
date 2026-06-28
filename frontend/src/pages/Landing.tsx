@@ -102,20 +102,21 @@ export default function Landing() {
         <div className="max-w-6xl mx-auto px-4 sm:px-6 py-4 flex items-center justify-between">
           <div className="flex items-center gap-2.5">
             <ShieldLogo />
-            <span className="font-bold text-xl text-gray-900 tracking-tight">ClauseGuard</span>
+            <span className="font-bold text-xl text-gray-900 tracking-tight whitespace-nowrap">ClauseGuard</span>
           </div>
-          <nav className="flex items-center gap-3">
+          <nav className="flex items-center gap-2 sm:gap-3">
             <Link
               to="/login"
-              className="text-sm font-medium text-gray-600 hover:text-gray-900 px-3 py-2 rounded-lg hover:bg-gray-50 transition-colors"
+              className="text-sm font-medium text-gray-600 hover:text-gray-900 px-2 sm:px-3 py-2 rounded-lg hover:bg-gray-50 transition-colors whitespace-nowrap"
             >
               Log in
             </Link>
             <Link
               to="/signup"
-              className="text-sm font-semibold bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 transition-colors"
+              className="text-sm font-semibold bg-indigo-600 text-white px-3 sm:px-4 py-2 rounded-lg hover:bg-indigo-700 transition-colors whitespace-nowrap"
             >
-              Get started free
+              <span className="sm:hidden">Sign up</span>
+              <span className="hidden sm:inline">Get started free</span>
             </Link>
           </nav>
         </div>
