@@ -2,6 +2,7 @@ import asyncio
 import json
 
 import google.generativeai as genai
+import httpx
 from google.api_core.exceptions import ResourceExhausted
 from PIL import Image
 
@@ -9,7 +10,7 @@ from app.core.config import settings
 from app.services.redflags import get_checklist
 
 RATE_LIMIT_MESSAGE = (
-    "All Gemini API keys are rate-limited (free tier). "
+    "All AI providers are currently rate-limited. "
     "Please wait a minute and try again."
 )
 
@@ -46,6 +47,8 @@ FOLLOWUP_SYSTEM_NOTE = (
 )
 
 
+# ── Helpers ─────────────────────────────────────────────────────────────────
+
 def _is_rate_limit(exc: Exception) -> bool:
     s = str(exc)
     return (
@@ -54,37 +57,16 @@ def _is_rate_limit(exc: Exception) -> bool:
         or "quota" in s.lower()
         or "RESOURCE_EXHAUSTED" in s
         or "rate limit" in s.lower()
+        or "rate_limit" in s.lower()
     )
 
 
-def _active_keys() -> list[str]:
+def _gemini_keys() -> list[str]:
     return [k for k in [settings.gemini_api_key, settings.gemini_api_key_2] if k]
 
 
-async def _gemini_call(make_call):
-    """
-    Tries each configured Gemini key in order, rotating on rate-limit errors.
-    make_call() must create the GenerativeModel INSIDE itself so it picks up
-    whichever key was set by genai.configure() for that attempt.
-    """
-    keys = _active_keys()
-    if not keys:
-        raise RuntimeError("No GEMINI_API_KEY configured")
-
-    last_exc: Exception | None = None
-    for key in keys:
-        try:
-            def _run(k=key, fn=make_call):
-                genai.configure(api_key=k)
-                return fn()
-            return await asyncio.to_thread(_run)
-        except Exception as exc:
-            if not _is_rate_limit(exc):
-                raise
-            last_exc = exc
-            print(f"[LLM] Key ...{key[-6:]} rate limited, rotating to next key")
-
-    raise RuntimeError(RATE_LIMIT_MESSAGE) from last_exc
+def _groq_keys() -> list[str]:
+    return [k for k in [settings.groq_api_key, settings.groq_api_key_2] if k]
 
 
 def _parse_json_response(raw: str) -> dict:
@@ -96,44 +78,167 @@ def _parse_json_response(raw: str) -> dict:
     return json.loads(cleaned)
 
 
+# ── Gemini calls ─────────────────────────────────────────────────────────────
+
+async def _gemini_text(prompt: str, system: str, key: str) -> str:
+    def _call():
+        genai.configure(api_key=key)
+        model = genai.GenerativeModel(
+            settings.gemini_model,
+            system_instruction=system or None,
+        )
+        return model.generate_content(prompt).text
+    return await asyncio.to_thread(_call)
+
+
+async def _gemini_chat(history: list[dict], system: str, question: str, key: str) -> str:
+    """history: list of {role: 'user'|'model', content: str}"""
+    def _call():
+        genai.configure(api_key=key)
+        model = genai.GenerativeModel(
+            settings.gemini_model,
+            system_instruction=system or None,
+        )
+        convo = [{"role": m["role"], "parts": [m["content"]]} for m in history]
+        chat = model.start_chat(history=convo)
+        return chat.send_message(question).text
+    return await asyncio.to_thread(_call)
+
+
+async def _gemini_ocr(image: Image.Image, key: str) -> str:
+    def _call():
+        genai.configure(api_key=key)
+        model = genai.GenerativeModel(settings.gemini_model)
+        return model.generate_content(
+            [image, "Transcribe all text visible in this document page exactly as written. Output only the transcribed text."]
+        ).text
+    return await asyncio.to_thread(_call)
+
+
+# ── Groq calls ───────────────────────────────────────────────────────────────
+
+def _groq_headers(key: str) -> dict:
+    return {"Authorization": f"Bearer {key}", "Content-Type": "application/json"}
+
+
+async def _groq_text(prompt: str, system: str, key: str) -> str:
+    messages = []
+    if system:
+        messages.append({"role": "system", "content": system})
+    messages.append({"role": "user", "content": prompt})
+
+    async with httpx.AsyncClient(timeout=60.0) as client:
+        resp = await client.post(
+            "https://api.groq.com/openai/v1/chat/completions",
+            headers=_groq_headers(key),
+            json={"model": settings.groq_model, "messages": messages, "max_tokens": 4000},
+        )
+        resp.raise_for_status()
+        return resp.json()["choices"][0]["message"]["content"]
+
+
+async def _groq_chat(history: list[dict], system: str, question: str, key: str) -> str:
+    """history: list of {role: 'user'|'model', content: str}"""
+    messages = []
+    if system:
+        messages.append({"role": "system", "content": system})
+    for m in history:
+        role = "assistant" if m["role"] == "model" else "user"
+        messages.append({"role": role, "content": m["content"]})
+    messages.append({"role": "user", "content": question})
+
+    async with httpx.AsyncClient(timeout=60.0) as client:
+        resp = await client.post(
+            "https://api.groq.com/openai/v1/chat/completions",
+            headers=_groq_headers(key),
+            json={"model": settings.groq_model, "messages": messages, "max_tokens": 2000},
+        )
+        resp.raise_for_status()
+        return resp.json()["choices"][0]["message"]["content"]
+
+
+# ── Fallback chains ──────────────────────────────────────────────────────────
+
+async def _text_with_fallback(prompt: str, system: str) -> str:
+    """Gemini key 1 → Gemini key 2 → Groq key 1 → Groq key 2."""
+    for key in _gemini_keys():
+        try:
+            return await _gemini_text(prompt, system, key)
+        except Exception as exc:
+            if not _is_rate_limit(exc):
+                raise
+            print(f"[LLM] Gemini ...{key[-6:]} rate limited, trying next")
+
+    for key in _groq_keys():
+        try:
+            return await _groq_text(prompt, system, key)
+        except Exception as exc:
+            if not _is_rate_limit(exc):
+                raise
+            print(f"[LLM] Groq ...{key[-6:]} rate limited, trying next")
+
+    raise RuntimeError(RATE_LIMIT_MESSAGE)
+
+
+async def _chat_with_fallback(history: list[dict], system: str, question: str) -> str:
+    """Gemini key 1 → Gemini key 2 → Groq key 1 → Groq key 2."""
+    for key in _gemini_keys():
+        try:
+            return await _gemini_chat(history, system, question, key)
+        except Exception as exc:
+            if not _is_rate_limit(exc):
+                raise
+            print(f"[LLM] Gemini ...{key[-6:]} rate limited, trying next")
+
+    for key in _groq_keys():
+        try:
+            return await _groq_chat(history, system, question, key)
+        except Exception as exc:
+            if not _is_rate_limit(exc):
+                raise
+            print(f"[LLM] Groq ...{key[-6:]} rate limited, trying next")
+
+    raise RuntimeError(RATE_LIMIT_MESSAGE)
+
+
+async def _ocr_with_fallback(image: Image.Image) -> str:
+    """OCR uses Gemini only — needs vision capability."""
+    for key in _gemini_keys():
+        try:
+            return await _gemini_ocr(image, key)
+        except Exception as exc:
+            if not _is_rate_limit(exc):
+                raise
+            print(f"[LLM] Gemini ...{key[-6:]} rate limited for OCR, trying next")
+
+    raise RuntimeError(RATE_LIMIT_MESSAGE)
+
+
+# ── Public API ───────────────────────────────────────────────────────────────
+
 async def extract_text_from_images(images: list[Image.Image]) -> str:
     results = []
     for img in images:
-        def _call(image=img):
-            model = genai.GenerativeModel(settings.gemini_model)
-            return model.generate_content(
-                [image, "Transcribe all text visible in this document page exactly as written. Output only the transcribed text."]
-            )
-        response = await _gemini_call(_call)
-        results.append(response.text)
+        results.append(await _ocr_with_fallback(img))
     return "\n\n".join(results)
 
 
 async def analyze_document(doc_type: str, content: str) -> dict:
     checklist = "\n".join(f"- {item}" for item in get_checklist(doc_type))
     prompt = ANALYSIS_PROMPT_TEMPLATE.format(doc_type=doc_type, checklist=checklist, content=content)
-
-    def _call():
-        model = genai.GenerativeModel(settings.gemini_model, system_instruction=SYSTEM_INSTRUCTION)
-        return model.generate_content(prompt)
-
-    response = await _gemini_call(_call)
-    return _parse_json_response(response.text)
+    raw = await _text_with_fallback(prompt, SYSTEM_INSTRUCTION)
+    return _parse_json_response(raw)
 
 
 async def answer_followup(document_text: str, history: list[dict], question: str) -> str:
-    convo = [
-        {"role": "user", "parts": [f"{FOLLOWUP_SYSTEM_NOTE}\n\nDocument content:\n{document_text}"]},
-        {"role": "model", "parts": ["Understood, I'll answer based only on this document."]},
+    # Neutral {role, content} format — Gemini uses 'model', Groq converts to 'assistant'
+    messages = [
+        {"role": "user", "content": f"{FOLLOWUP_SYSTEM_NOTE}\n\nDocument content:\n{document_text}"},
+        {"role": "model", "content": "Understood, I'll answer based only on this document."},
     ]
     for msg in history:
-        role = "model" if msg["role"] == "assistant" else "user"
-        convo.append({"role": role, "parts": [msg["content"]]})
-
-    def _call():
-        model = genai.GenerativeModel(settings.gemini_model, system_instruction=SYSTEM_INSTRUCTION)
-        chat = model.start_chat(history=convo)
-        return chat.send_message(question)
-
-    response = await _gemini_call(_call)
-    return response.text
+        messages.append({
+            "role": "model" if msg["role"] == "assistant" else "user",
+            "content": msg["content"],
+        })
+    return await _chat_with_fallback(messages, SYSTEM_INSTRUCTION, question)

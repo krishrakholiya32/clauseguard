@@ -12,6 +12,9 @@ class Settings(BaseSettings):
     gemini_api_key: str = ""
     gemini_api_key_2: str = ""
     gemini_model: str = "gemini-3.1-flash-lite"
+    groq_api_key: str = ""
+    groq_api_key_2: str = ""
+    groq_model: str = "llama-3.3-70b-versatile"
     upload_dir: str = "uploads"
     cors_origins: list[str] = ["http://localhost:5173", "http://localhost:80"]
 
