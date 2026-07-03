@@ -1,4 +1,4 @@
-from typing import Any
+from typing import List
 
 from pydantic import field_validator
 from pydantic_settings import BaseSettings
@@ -14,9 +14,14 @@ class Settings(BaseSettings):
     gemini_model: str = "gemini-3.1-flash-lite"
     groq_api_key: str = ""
     groq_api_key_2: str = ""
-    groq_model: str = "llama-3.3-70b-versatile"
+    groq_model: str = "openai/gpt-oss-120b"
+    groq_vision_model: str = "qwen/qwen3.6-27b"
     upload_dir: str = "uploads"
-    cors_origins: list[str] = ["http://localhost:5173", "http://localhost:80"]
+    # Plain string, not list[str]: pydantic-settings JSON-decodes list-typed env
+    # vars *before* any field_validator runs, so a plain comma-separated
+    # CORS_ORIGINS env var (the natural way to set it) would 400 at startup on
+    # a list[str] field. Parse the comma-separated string ourselves instead.
+    cors_origins: str = "http://localhost:5173,http://localhost:80"
 
     class Config:
         env_file = ".env"
@@ -30,12 +35,9 @@ class Settings(BaseSettings):
             return "postgresql+asyncpg://" + v[len("postgresql://"):]
         return v
 
-    @field_validator("cors_origins", mode="before")
-    @classmethod
-    def parse_cors_origins(cls, v: Any) -> Any:
-        if isinstance(v, str):
-            return [o.strip() for o in v.split(",") if o.strip()]
-        return v
+    @property
+    def cors_origins_list(self) -> List[str]:
+        return [o.strip() for o in self.cors_origins.split(",") if o.strip()]
 
 
 settings = Settings()

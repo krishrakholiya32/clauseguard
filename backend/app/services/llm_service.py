@@ -1,4 +1,6 @@
 import asyncio
+import base64
+import io
 import json
 
 import google.generativeai as genai
@@ -109,9 +111,7 @@ async def _gemini_ocr(image: Image.Image, key: str) -> str:
     def _call():
         genai.configure(api_key=key)
         model = genai.GenerativeModel(settings.gemini_model)
-        return model.generate_content(
-            [image, "Transcribe all text visible in this document page exactly as written. Output only the transcribed text."]
-        ).text
+        return model.generate_content([image, OCR_PROMPT]).text
     return await asyncio.to_thread(_call)
 
 
@@ -132,6 +132,34 @@ async def _groq_text(prompt: str, system: str, key: str) -> str:
             "https://api.groq.com/openai/v1/chat/completions",
             headers=_groq_headers(key),
             json={"model": settings.groq_model, "messages": messages, "max_tokens": 4000},
+        )
+        resp.raise_for_status()
+        return resp.json()["choices"][0]["message"]["content"]
+
+
+OCR_PROMPT = "Transcribe all text visible in this document page exactly as written. Output only the transcribed text."
+
+
+async def _groq_ocr(image: Image.Image, key: str) -> str:
+    buf = io.BytesIO()
+    image.save(buf, format="PNG")
+    b64 = base64.b64encode(buf.getvalue()).decode()
+    payload = {
+        "model": settings.groq_vision_model,
+        "messages": [{
+            "role": "user",
+            "content": [
+                {"type": "image_url", "image_url": {"url": f"data:image/png;base64,{b64}"}},
+                {"type": "text", "text": OCR_PROMPT},
+            ],
+        }],
+        "max_tokens": 4000,
+    }
+    async with httpx.AsyncClient(timeout=60.0) as client:
+        resp = await client.post(
+            "https://api.groq.com/openai/v1/chat/completions",
+            headers=_groq_headers(key),
+            json=payload,
         )
         resp.raise_for_status()
         return resp.json()["choices"][0]["message"]["content"]
@@ -202,7 +230,12 @@ async def _chat_with_fallback(history: list[dict], system: str, question: str) -
 
 
 async def _ocr_with_fallback(image: Image.Image) -> str:
-    """OCR uses Gemini only — needs vision capability."""
+    """Gemini key 1 → Gemini key 2 → Groq key 1 → Groq key 2.
+
+    Both providers' configured models are vision-capable (Gemini natively;
+    Groq via qwen/qwen3.6-27b), so OCR gets the same resilience as text/chat
+    instead of failing outright whenever both Gemini keys are exhausted.
+    """
     for key in _gemini_keys():
         try:
             return await _gemini_ocr(image, key)
@@ -210,6 +243,14 @@ async def _ocr_with_fallback(image: Image.Image) -> str:
             if not _is_rate_limit(exc):
                 raise
             print(f"[LLM] Gemini ...{key[-6:]} rate limited for OCR, trying next")
+
+    for key in _groq_keys():
+        try:
+            return await _groq_ocr(image, key)
+        except Exception as exc:
+            if not _is_rate_limit(exc):
+                raise
+            print(f"[LLM] Groq ...{key[-6:]} rate limited for OCR, trying next")
 
     raise RuntimeError(RATE_LIMIT_MESSAGE)
 
