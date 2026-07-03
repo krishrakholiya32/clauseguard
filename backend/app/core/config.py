@@ -10,10 +10,10 @@ class Settings(BaseSettings):
     jwt_algorithm: str = "HS256"
     jwt_expire_minutes: int = 60 * 24 * 7
     gemini_api_key: str = ""
-    gemini_api_key_2: str = ""
+    gemini_api_keys: str = ""  # comma-separated extra keys for rotation
     gemini_model: str = "gemini-3.1-flash-lite"
     groq_api_key: str = ""
-    groq_api_key_2: str = ""
+    groq_api_keys: str = ""  # comma-separated extra keys for rotation
     groq_model: str = "openai/gpt-oss-120b"
     groq_vision_model: str = "qwen/qwen3.6-27b"
     upload_dir: str = "uploads"
@@ -38,6 +38,20 @@ class Settings(BaseSettings):
     @property
     def cors_origins_list(self) -> List[str]:
         return [o.strip() for o in self.cors_origins.split(",") if o.strip()]
+
+    @property
+    def all_gemini_keys(self) -> List[str]:
+        keys = [self.gemini_api_key] if self.gemini_api_key else []
+        if self.gemini_api_keys:
+            keys += [k.strip() for k in self.gemini_api_keys.split(",") if k.strip()]
+        return keys
+
+    @property
+    def all_groq_keys(self) -> List[str]:
+        keys = [self.groq_api_key] if self.groq_api_key else []
+        if self.groq_api_keys:
+            keys += [k.strip() for k in self.groq_api_keys.split(",") if k.strip()]
+        return keys
 
 
 settings = Settings()

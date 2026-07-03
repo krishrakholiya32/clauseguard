@@ -64,11 +64,11 @@ def _is_rate_limit(exc: Exception) -> bool:
 
 
 def _gemini_keys() -> list[str]:
-    return [k for k in [settings.gemini_api_key, settings.gemini_api_key_2] if k]
+    return settings.all_gemini_keys
 
 
 def _groq_keys() -> list[str]:
-    return [k for k in [settings.groq_api_key, settings.groq_api_key_2] if k]
+    return settings.all_groq_keys
 
 
 def _parse_json_response(raw: str) -> dict:
