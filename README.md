@@ -14,7 +14,7 @@
     <img src="https://img.shields.io/badge/FastAPI-0.115+-009688?style=flat&logo=fastapi&logoColor=white" alt="FastAPI">
     <img src="https://img.shields.io/badge/React-18-61DAFB?style=flat&logo=react&logoColor=black" alt="React">
     <img src="https://img.shields.io/badge/Gemini-3.1_Flash_Lite-4285F4?style=flat&logo=google&logoColor=white" alt="Gemini">
-    <img src="https://img.shields.io/badge/Groq-LLaMA_3.3_70B-F55036?style=flat" alt="Groq">
+    <img src="https://img.shields.io/badge/Groq-GPT--OSS_120B-F55036?style=flat" alt="Groq">
     <img src="https://img.shields.io/badge/Heroku-deployed-430098?style=flat&logo=heroku&logoColor=white" alt="Heroku">
     <img src="https://img.shields.io/badge/License-MIT-yellow?style=flat" alt="License">
   </p>
@@ -66,12 +66,12 @@ Most people sign contracts they don't fully understand — rental agreements wit
 | 3 | **Overall Risk Score** | Document-level risk summary with a 2–4 sentence overview |
 | 4 | **Negotiation Tips** | Concrete, actionable suggestions on what to push back on |
 | 5 | **Document Chat** | Ask follow-up questions grounded in your specific contract |
-| 6 | **OCR Support** | Scanned PDFs and contract photos (JPEG/PNG) extracted via Gemini vision |
+| 6 | **OCR Support** | Scanned PDFs and contract photos (JPEG/PNG) extracted via Gemini vision, with a Groq vision fallback |
 | 7 | **12 Contract Types** | Rental, employment, loan, NDA, freelance, sale, insurance, partnership, vendor, consulting, software, other |
 | 8 | **Per-User History** | All analyzed contracts saved to your account with full analysis |
-| 9 | **Dual Gemini Key Rotation** | Automatic key rotation on rate limit (500 RPD × 2 keys) |
-| 10 | **Groq Fallback** | LLaMA 3.3 70B via Groq kicks in if both Gemini keys are exhausted |
-| 11 | **JWT Auth** | Signup / login with bcrypt password hashing; all document endpoints require auth |
+| 9 | **Unbounded Gemini Key Rotation** | Any number of Gemini keys rotate automatically on rate limit (500 RPD per key) |
+| 10 | **Groq Fallback** | GPT-OSS 120B via Groq kicks in if every Gemini key is exhausted, for both text and vision |
+| 11 | **JWT Auth** | Signup / login with Argon2 password hashing; all document endpoints require auth |
 
 ---
 
@@ -82,10 +82,10 @@ Most people sign contracts they don't fully understand — rental agreements wit
 | **Backend** | FastAPI, Python 3.11+, async SQLAlchemy |
 | **Database** | PostgreSQL (asyncpg) |
 | **Primary LLM** | Google Gemini `gemini-3.1-flash-lite` — text analysis + vision OCR |
-| **Fallback LLM** | Groq `llama-3.3-70b-versatile` — text analysis + chat |
-| **PDF extraction** | PyMuPDF (text PDFs), Gemini vision (scanned PDFs / photos) |
+| **Fallback LLM** | Groq `openai/gpt-oss-120b` (text) + `qwen/qwen3.6-27b` (vision/OCR) |
+| **PDF extraction** | PyMuPDF (text PDFs), Gemini vision + Groq vision fallback (scanned PDFs / photos) |
 | **DOCX extraction** | python-docx |
-| **Authentication** | JWT (python-jose) + bcrypt (passlib) |
+| **Authentication** | JWT (PyJWT) + Argon2 (pwdlib) |
 | **Frontend** | React 18 + Vite + TypeScript |
 | **Styling** | Tailwind CSS v4 — white + indigo (#4F46E5) design system, Inter font |
 | **Deployment** | Heroku (eco dyno, single process — FastAPI serves React build) |
@@ -105,8 +105,8 @@ Browser
   │
   ├─ POST /documents/upload → Save file, kick off BackgroundTask
   │     └─ process_document(doc_id)
-  │           ├─ Extract text (PyMuPDF / python-docx / Gemini OCR)
-  │           ├─ Analyze: Gemini key 1 → Gemini key 2 → Groq key 1 → Groq key 2
+  │           ├─ Extract text (PyMuPDF / python-docx / Gemini OCR, Groq OCR fallback)
+  │           ├─ Analyze: every configured Gemini key → every configured Groq key
   │           └─ Save analysis JSON to DB
   │
   ├─ GET  /documents        → List user's documents (auth required)
@@ -114,12 +114,12 @@ Browser
   ├─ DELETE /documents/{id} → Delete document (auth required)
   ├─ GET  /documents/{id}/chat → Chat history
   └─ POST /documents/{id}/chat → Ask a question (grounded in doc text)
-        └─ answer_followup(): Gemini key 1 → Gemini key 2 → Groq key 1 → Groq key 2
+        └─ answer_followup(): every configured Gemini key → every configured Groq key
 ```
 
 **LLM Fallback Chain:**
-- Text analysis and chat: Gemini key 1 → Gemini key 2 → Groq key 1 → Groq key 2
-- OCR (scanned images): Gemini only (needs vision capability)
+- Text analysis and chat: all Gemini keys (primary + `GEMINI_API_KEYS` extras) → all Groq keys (primary + `GROQ_API_KEYS` extras). Unbounded — any number of backup keys per provider, not capped at one.
+- OCR (scanned images): all Gemini keys → all Groq keys (`qwen/qwen3.6-27b`, vision-capable) — used to be Gemini-only with no fallback at all.
 - Rate-limit detection: catches `ResourceExhausted`, HTTP 429, "quota" strings
 
 ---
@@ -156,10 +156,12 @@ Create `backend/.env`:
 DATABASE_URL=postgresql+asyncpg://clauseguard:clauseguard@localhost:5432/clauseguard
 JWT_SECRET=change-me-to-a-random-secret
 GEMINI_API_KEY=your_gemini_api_key_here
-GEMINI_API_KEY_2=your_second_gemini_key_here   # optional
+GEMINI_API_KEYS=second_key,third_key           # optional, comma-separated, unbounded
 GEMINI_MODEL=gemini-3.1-flash-lite
 GROQ_API_KEY=your_groq_api_key_here            # optional
-GROQ_API_KEY_2=your_second_groq_key_here       # optional
+GROQ_API_KEYS=second_key,third_key             # optional, comma-separated, unbounded
+GROQ_MODEL=openai/gpt-oss-120b
+GROQ_VISION_MODEL=qwen/qwen3.6-27b
 ```
 
 ```bash
@@ -197,11 +199,12 @@ Open <http://localhost> — nginx proxies API calls to the FastAPI backend.
 | `DATABASE_URL` | Yes | PostgreSQL connection string (`postgresql+asyncpg://...`) |
 | `JWT_SECRET` | Yes | Random secret for JWT signing — `openssl rand -hex 32` |
 | `GEMINI_API_KEY` | Yes | Primary Gemini API key — text analysis + OCR |
-| `GEMINI_API_KEY_2` | No | Second Gemini key — rotated in on rate limit |
+| `GEMINI_API_KEYS` | No | Comma-separated backup Gemini keys — unbounded, all rotated in on rate limit |
 | `GEMINI_MODEL` | No | Default: `gemini-3.1-flash-lite` (500 RPD free) |
-| `GROQ_API_KEY` | No | Groq key — fallback after both Gemini keys are exhausted |
-| `GROQ_API_KEY_2` | No | Second Groq key — rotated in on Groq rate limit |
-| `GROQ_MODEL` | No | Default: `llama-3.3-70b-versatile` |
+| `GROQ_API_KEY` | No | Groq key — fallback after every Gemini key is exhausted |
+| `GROQ_API_KEYS` | No | Comma-separated backup Groq keys — unbounded, all rotated in on rate limit |
+| `GROQ_MODEL` | No | Default: `openai/gpt-oss-120b` (text) |
+| `GROQ_VISION_MODEL` | No | Default: `qwen/qwen3.6-27b` (OCR fallback) |
 | `CORS_ORIGINS` | No | Comma-separated allowed origins (not needed on Heroku — same-origin) |
 
 > **Gemini model note:** Use `gemini-3.1-flash-lite`. Other models like `gemini-2.0-flash` may have zero free-tier quota — check the Rate Limits tab in AI Studio if you get 429 errors.
@@ -318,8 +321,11 @@ heroku addons:create heroku-postgresql:essential-0
 
 heroku config:set JWT_SECRET=$(openssl rand -hex 32)
 heroku config:set GEMINI_API_KEY=your_key_here
-heroku config:set GEMINI_API_KEY_2=your_second_key_here
+heroku config:set GEMINI_API_KEYS=your_second_key_here,your_third_key_here
 heroku config:set GROQ_API_KEY=your_groq_key_here
+heroku config:set GROQ_API_KEYS=your_second_groq_key_here
+heroku config:set GROQ_MODEL=openai/gpt-oss-120b
+heroku config:set GROQ_VISION_MODEL=qwen/qwen3.6-27b
 
 # Build frontend first
 cd frontend && npm run build && cd ..
