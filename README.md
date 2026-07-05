@@ -15,7 +15,7 @@
     <img src="https://img.shields.io/badge/React-18-61DAFB?style=flat&logo=react&logoColor=black" alt="React">
     <img src="https://img.shields.io/badge/Gemini-3.1_Flash_Lite-4285F4?style=flat&logo=google&logoColor=white" alt="Gemini">
     <img src="https://img.shields.io/badge/Groq-GPT--OSS_120B-F55036?style=flat" alt="Groq">
-    <img src="https://img.shields.io/badge/Heroku-deployed-430098?style=flat&logo=heroku&logoColor=white" alt="Heroku">
+    <img src="https://img.shields.io/badge/Azure-deployed-0089D6?style=flat&logo=microsoftazure&logoColor=white" alt="Azure">
     <img src="https://img.shields.io/badge/License-MIT-yellow?style=flat" alt="License">
   </p>
 </p>
@@ -88,7 +88,7 @@ Most people sign contracts they don't fully understand — rental agreements wit
 | **Authentication** | JWT (PyJWT) + Argon2 (pwdlib) |
 | **Frontend** | React 18 + Vite + TypeScript |
 | **Styling** | Tailwind CSS v4 — white + indigo (#4F46E5) design system, Inter font |
-| **Deployment** | Heroku (eco dyno, single process — FastAPI serves React build) |
+| **Deployment** | Azure VM (Ubuntu, ARM64), systemd + Nginx + Let's Encrypt — FastAPI serves React build |
 
 ---
 
@@ -205,7 +205,7 @@ Open <http://localhost> — nginx proxies API calls to the FastAPI backend.
 | `GROQ_API_KEYS` | No | Comma-separated backup Groq keys — unbounded, all rotated in on rate limit |
 | `GROQ_MODEL` | No | Default: `openai/gpt-oss-120b` (text) |
 | `GROQ_VISION_MODEL` | No | Default: `qwen/qwen3.6-27b` (OCR fallback) |
-| `CORS_ORIGINS` | No | Comma-separated allowed origins (not needed on Heroku — same-origin) |
+| `CORS_ORIGINS` | No | Comma-separated allowed origins (not needed in production — same-origin, FastAPI serves the built React app directly) |
 
 > **Gemini model note:** Use `gemini-3.1-flash-lite`. Other models like `gemini-2.0-flash` may have zero free-tier quota — check the Rate Limits tab in AI Studio if you get 429 errors.
 
@@ -291,61 +291,62 @@ clauseguard/
 │   │   │   └── DocumentResult.tsx # Analysis view — polling, clause cards, chat
 │   │   ├── App.tsx               # Router, Nav, ProtectedRoute
 │   │   └── index.css             # Inter font, Tailwind v4, marquee animation
-│   └── .env.production           # VITE_API_URL= (empty → relative URLs on Heroku)
+│   └── .env.production           # VITE_API_URL= (empty → relative URLs, same-origin)
 ├── docs/
 │   └── screenshots/
-├── Procfile                      # web: sh -c 'cd backend && uvicorn ...'
-├── .python-version               # 3.11 (Heroku buildpack)
-├── requirements.txt              # -r backend/requirements.txt (Heroku root requirement)
+├── requirements.txt              # -r backend/requirements.txt
 ├── docker-compose.yml
 └── README.md
 ```
 
 ---
 
-## Deployment (Heroku)
+## Deployment (Azure)
 
-The app runs as a **single Heroku dyno** — FastAPI serves both the API and the React build:
+Runs on an **Azure for Students** VM (`Standard_B2pts_v2`, ARM64, 2 vCPU / 1GB RAM), Ubuntu
+24.04 — shares the box with CaReSale, each as its own systemd service behind a shared Nginx.
 
 ```
-Procfile:  web: sh -c 'cd backend && uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}'
+systemd: uvicorn app.main:app --host 127.0.0.1 --port 8003
+Nginx:   reverse proxy clauseguard.zrik.tech → 127.0.0.1:8003, SSL via Let's Encrypt
 ```
 
-FastAPI mounts `/assets` as `StaticFiles` and serves `frontend/dist/index.html` via a catch-all route for all non-API paths.
+FastAPI mounts `/assets` as `StaticFiles` and serves `frontend/dist/index.html` via a catch-all route for all non-API paths — same pattern as before, just proxied through Nginx instead of Heroku's router.
 
 ### Deploy your own
 
 ```bash
-heroku create your-app-name
-heroku addons:create heroku-postgresql:essential-0
+# On the server: clone, install, build
+git clone https://github.com/krishrakholiya32/clauseguard.git
+cd clauseguard/backend
+python3 -m venv .venv && .venv/bin/pip install -r requirements.txt
+cd ../frontend && npm install && npm run build
 
-heroku config:set JWT_SECRET=$(openssl rand -hex 32)
-heroku config:set GEMINI_API_KEY=your_key_here
-heroku config:set GEMINI_API_KEYS=your_second_key_here,your_third_key_here
-heroku config:set GROQ_API_KEY=your_groq_key_here
-heroku config:set GROQ_API_KEYS=your_second_groq_key_here
-heroku config:set GROQ_MODEL=openai/gpt-oss-120b
-heroku config:set GROQ_VISION_MODEL=qwen/qwen3.6-27b
+# Postgres (local, same box or elsewhere)
+sudo -u postgres psql -c "CREATE USER clauseguard WITH PASSWORD 'yourpass';"
+sudo -u postgres psql -c "CREATE DATABASE clauseguard OWNER clauseguard;"
 
-# Build frontend first
-cd frontend && npm run build && cd ..
-git add -f frontend/dist/
-git commit -m "build: production frontend"
-git push heroku main
+# backend/.env
+DATABASE_URL=postgresql+asyncpg://clauseguard:yourpass@localhost:5432/clauseguard
+JWT_SECRET=$(openssl rand -hex 32)
+GEMINI_API_KEY=your_key_here
+GEMINI_API_KEYS=your_second_key_here,your_third_key_here
+GROQ_API_KEY=your_groq_key_here
+GROQ_API_KEYS=your_second_groq_key_here
+GROQ_MODEL=openai/gpt-oss-120b
+GROQ_VISION_MODEL=qwen/qwen3.6-27b
+CORS_ORIGINS=https://your-domain.com
 ```
 
-Custom domain + SSL:
-```bash
-heroku domains:add clauseguard.yourdomain.com
-heroku certs:auto:enable
-# Add CNAME in your DNS provider pointing to the Heroku DNS target shown
-```
+Then a systemd unit (`ExecStart=.venv/bin/uvicorn app.main:app --host 127.0.0.1 --port 8003`),
+an Nginx server block reverse-proxying to that port, and `sudo certbot --nginx -d your-domain.com`
+for SSL.
 
 ---
 
 ## Roadmap
 
-- [ ] S3/Cloudflare R2 for persistent uploaded file storage (Heroku storage is ephemeral)
+- [ ] S3/Cloudflare R2 for persistent uploaded file storage (currently on local VM disk)
 - [ ] Streaming analysis results via SSE (instead of polling)
 - [ ] Side-by-side clause comparison between two contract versions
 - [ ] Export analysis as PDF summary
@@ -360,5 +361,5 @@ heroku certs:auto:enable
 ---
 
 <p align="center">
-  Designed and built from scratch with FastAPI · React · Gemini · Groq · Deployed on Heroku
+  Designed and built from scratch with FastAPI · React · Gemini · Groq · Deployed on Azure
 </p>
