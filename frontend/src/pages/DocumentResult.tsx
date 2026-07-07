@@ -115,8 +115,6 @@ export default function DocumentResult() {
 
       <h1 className="text-xl font-bold text-gray-900 mb-5 leading-snug break-words">{doc.filename}</h1>
 
-      <DisclaimerBanner />
-
       {(doc.status === "pending" || doc.status === "processing") && (
         <div className="mt-6 p-5 bg-indigo-50 border border-indigo-100 rounded-xl">
           <Spinner />
@@ -184,6 +182,8 @@ export default function DocumentResult() {
           )}
 
           <ChatBox documentId={doc.id} />
+
+          <DisclaimerBanner />
         </div>
       )}
     </div>
