@@ -1,3 +1,4 @@
+import asyncio
 import os
 from contextlib import asynccontextmanager
 
@@ -9,12 +10,15 @@ from fastapi.staticfiles import StaticFiles
 from app.api import auth, documents
 from app.core.config import settings
 from app.core.database import init_db
+from app.services.retention import retention_loop
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     await init_db()
+    retention_task = asyncio.create_task(retention_loop())
     yield
+    retention_task.cancel()
 
 
 app = FastAPI(title="ClauseGuard API", lifespan=lifespan)

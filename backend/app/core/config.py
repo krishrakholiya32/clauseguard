@@ -17,6 +17,7 @@ class Settings(BaseSettings):
     groq_model: str = "openai/gpt-oss-120b"
     groq_vision_model: str = "qwen/qwen3.6-27b"
     upload_dir: str = "uploads"
+    retention_days: int = 30
     # Plain string, not list[str]: pydantic-settings JSON-decodes list-typed env
     # vars *before* any field_validator runs, so a plain comma-separated
     # CORS_ORIGINS env var (the natural way to set it) would 400 at startup on
