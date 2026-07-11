@@ -40,9 +40,19 @@ async def upload_document(
     stored_name = f"{uuid.uuid4()}{ext}"
     storage_path = os.path.join(settings.upload_dir, stored_name)
 
-    contents = await file.read()
-    with open(storage_path, "wb") as f:
-        f.write(contents)
+    max_bytes = settings.max_upload_size_mb * 1024 * 1024
+    size = 0
+    try:
+        with open(storage_path, "wb") as f:
+            while chunk := await file.read(1024 * 1024):
+                size += len(chunk)
+                if size > max_bytes:
+                    raise HTTPException(status_code=413, detail=f"File exceeds {settings.max_upload_size_mb}MB limit")
+                f.write(chunk)
+    except HTTPException:
+        if os.path.exists(storage_path):
+            os.remove(storage_path)
+        raise
 
     document = Document(
         user_id=current_user.id,

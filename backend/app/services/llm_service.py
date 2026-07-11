@@ -77,7 +77,16 @@ def _parse_json_response(raw: str) -> dict:
         cleaned = cleaned.strip("`")
         if cleaned.startswith("json"):
             cleaned = cleaned[4:]
-    return json.loads(cleaned)
+    cleaned = cleaned.strip()
+    try:
+        return json.loads(cleaned)
+    except json.JSONDecodeError:
+        # Model added commentary/preamble around the JSON object — fall back to
+        # extracting the outermost {...} span instead of failing outright.
+        start, end = cleaned.find("{"), cleaned.rfind("}")
+        if start != -1 and end != -1 and end > start:
+            return json.loads(cleaned[start : end + 1])
+        raise
 
 
 # ── Gemini calls ─────────────────────────────────────────────────────────────
@@ -268,7 +277,18 @@ async def analyze_document(doc_type: str, content: str) -> dict:
     checklist = "\n".join(f"- {item}" for item in get_checklist(doc_type))
     prompt = ANALYSIS_PROMPT_TEMPLATE.format(doc_type=doc_type, checklist=checklist, content=content)
     raw = await _text_with_fallback(prompt, SYSTEM_INSTRUCTION)
-    return _parse_json_response(raw)
+    try:
+        result = _parse_json_response(raw)
+    except json.JSONDecodeError:
+        # One retry: a malformed response is usually a one-off formatting slip,
+        # not a persistent failure, so re-prompt once before giving up.
+        print("[LLM] analyze_document: JSON parse failed, retrying once")
+        raw = await _text_with_fallback(prompt, SYSTEM_INSTRUCTION)
+        result = _parse_json_response(raw)
+    for key in ("summary", "overall_risk", "clauses", "negotiation_tips"):
+        if key not in result:
+            raise ValueError(f"LLM analysis response missing required field: {key!r}")
+    return result
 
 
 async def answer_followup(document_text: str, history: list[dict], question: str) -> str:

@@ -1,3 +1,4 @@
+import sys
 from typing import List
 
 from pydantic import field_validator
@@ -17,6 +18,7 @@ class Settings(BaseSettings):
     groq_model: str = "openai/gpt-oss-120b"
     groq_vision_model: str = "qwen/qwen3.6-27b"
     upload_dir: str = "uploads"
+    max_upload_size_mb: int = 20
     retention_days: int = 30
     # Plain string, not list[str]: pydantic-settings JSON-decodes list-typed env
     # vars *before* any field_validator runs, so a plain comma-separated
@@ -56,3 +58,7 @@ class Settings(BaseSettings):
 
 
 settings = Settings()
+
+if settings.jwt_secret == "change-me-in-production":
+    print("FATAL: JWT_SECRET is not set. Set it in .env before starting.", file=sys.stderr)
+    sys.exit(1)
