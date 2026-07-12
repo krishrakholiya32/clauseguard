@@ -68,7 +68,7 @@ Most people sign contracts they don't fully understand — rental agreements wit
 | 5 | **Document Chat** | Ask follow-up questions grounded in your specific contract |
 | 6 | **OCR Support** | Scanned PDFs and contract photos (JPEG/PNG) extracted via Gemini vision, with a Groq vision fallback |
 | 7 | **12 Contract Types** | Rental, employment, loan, NDA, freelance, sale, insurance, partnership, vendor, consulting, software, other |
-| 8 | **Per-User History** | All analyzed contracts saved to your account with full analysis |
+| 8 | **Per-User History** | All analyzed contracts saved to your account with full analysis, auto-deleted after 30 days |
 | 9 | **Unbounded Gemini Key Rotation** | Any number of Gemini keys rotate automatically on rate limit (500 RPD per key) |
 | 10 | **Groq Fallback** | GPT-OSS 120B via Groq kicks in if every Gemini key is exhausted, for both text and vision |
 | 11 | **JWT Auth** | Signup / login with Argon2 password hashing; all document endpoints require auth |
