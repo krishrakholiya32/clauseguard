@@ -51,6 +51,14 @@
 
 ---
 
+## Demo
+
+![ClauseGuard Demo](docs/demo.gif)
+
+Try it live at **[clauseguard.zrik.tech](https://clauseguard.zrik.tech)**
+
+---
+
 ## Why I Built This
 
 Most people sign contracts they don't fully understand — rental agreements with one-sided clauses, employment contracts with overreaching IP assignments, loan documents with hidden penalties. Legal review is expensive and slow. ClauseGuard was built to fix that: upload any contract and get an instant, grounded analysis tailored to Indian legal conventions. The project explores async document processing, multi-provider LLM fallback chains, and RAG-style document-grounded chat — all in a polished single-dyno deployment.
